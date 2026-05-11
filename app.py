@@ -102,21 +102,37 @@ html { scroll-behavior: smooth; }
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 18px; padding: 22px 24px;
 }
-.fl-input-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
-.fl-itab {
-  font-size: 12px; padding: 5px 16px; border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.1);
-  color: rgba(255,255,255,0.35); background: transparent; cursor: pointer;
-  transition: all 0.2s;
-}
-.fl-itab.on {
-  background: rgba(42,63,143,0.3);
-  border-color: rgba(123,143,212,0.4); color: #A0B4F0;
-}
 .fl-input-hint {
   font-size: 11px; color: rgba(255,255,255,0.2);
   display: flex; align-items: center; gap: 5px; margin-top: 10px;
 }
+
+/* ── Kill ALL Streamlit default spacing in hero zone ── */
+.fl-hero-body { background: #0B0F1A; padding: 0 48px 56px; }
+.fl-hero-body .stSelectbox { margin-bottom: 10px !important; }
+.fl-hero-body > div, .fl-hero-body .stButton { margin: 0 !important; padding: 0 !important; }
+
+/* ── Column gutters: remove Streamlit's default column gap ── */
+[data-testid="column"] { padding: 0 8px !important; }
+
+/* ── Selectbox full restyle ── */
+.stSelectbox > div > div {
+  background: rgba(255,255,255,0.06) !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  border-radius: 10px !important; color: #C8D4F0 !important;
+  font-size: 13px !important;
+}
+.stSelectbox > div > div:hover { border-color: rgba(123,143,212,0.4) !important; }
+
+/* ── Text input (URL mode) ── */
+.stTextInput input {
+  background: rgba(255,255,255,0.03) !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  border-radius: 10px !important; color: #C8D4F0 !important;
+  font-size: 14px !important;
+}
+.stTextInput input::placeholder { color: rgba(255,255,255,0.18) !important; }
+.stTextInput label { display: none !important; }
 
 /* ── Override Streamlit textarea ── */
 .stTextArea textarea {
@@ -302,11 +318,9 @@ html { scroll-behavior: smooth; }
 /* ── Alert overrides ── */
 .stSuccess, .stError, .stWarning, .stInfo { border-radius: 10px !important; }
 
-/* ── Select box ── */
-.stSelectbox select, .stSelectbox > div > div {
-  background: rgba(255,255,255,0.04) !important;
-  border: 1px solid rgba(255,255,255,0.1) !important;
-  color: #C8D4F0 !important; border-radius: 10px !important;
+/* ── Remove Streamlit's default element top padding ── */
+.stSelectbox, .stTextArea, .stTextInput, .stFileUploader, .stButton {
+  margin-top: 0 !important; padding-top: 0 !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -383,7 +397,7 @@ st.markdown("""
 # HERO
 # ═══════════════════════════════════════════════════════════════════════════════
 st.markdown("""
-<div class="fl-hero" id="verify">
+<div class="fl-hero" id="verify" style="padding-bottom: 32px;">
   <div class="fl-hero-glow"></div>
   <div class="fl-badge">
     <span class="fl-badge-dot"></span>
@@ -395,12 +409,15 @@ st.markdown("""
     FactLens checks it against live web sources in seconds.
   </p>
 </div>
+<div style="background:#0B0F1A; padding: 0 0 8px;">
+  <div class="fl-input-card">
 """, unsafe_allow_html=True)
 
-# ── Input section (Streamlit widgets inside styled card) ──────────────────────
-col_l, col_c, col_r = st.columns([1, 2.5, 1])
+verify = False
+input_text = ""
+
+col_l, col_c, col_r = st.columns([1, 2.8, 1])
 with col_c:
-    st.markdown('<div class="fl-input-card">', unsafe_allow_html=True)
 
     # Mode tabs (visual only — we toggle with selectbox)
     mode = st.selectbox(
@@ -408,8 +425,6 @@ with col_c:
         ["📝  Paste text", "🔗  Paste URL", "📄  Upload PDF"],
         label_visibility="collapsed"
     )
-
-    input_text = ""
 
     if mode == "📝  Paste text":
         input_text = st.text_area(
@@ -468,12 +483,16 @@ with col_c:
     """, unsafe_allow_html=True)
 
     verify = st.button("🔬  Verify claims", use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+
+st.markdown("""
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
 # ── Stats row ─────────────────────────────────────────────────────────────────
 st.markdown("""
-<div style="max-width:620px;margin:0 auto;padding:0 0 56px;">
-  <div class="fl-stats-row">
+<div style="background:#0B0F1A; padding: 24px 0 56px; text-align:center;">
+  <div class="fl-stats-row" style="max-width:380px;margin:0 auto;">
     <div class="fl-stat"><div class="fl-stat-n">3–8</div><div class="fl-stat-l">Claims found</div></div>
     <div class="fl-stat"><div class="fl-stat-n">&lt;15s</div><div class="fl-stat-l">Avg check time</div></div>
     <div class="fl-stat"><div class="fl-stat-n">Live</div><div class="fl-stat-l">Web sources</div></div>
