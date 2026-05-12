@@ -6,326 +6,229 @@ from groq import Groq
 from tavily import TavilyClient
 import os
 
-# ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(page_title="FactLens AI", page_icon="🔬", layout="wide")
 
-# ── API keys from environment (set once in Render → no user input needed) ──────
 GROQ_API_KEY   = os.environ.get("GROQ_API_KEY", "")
 TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "")
 
-# ── Full-page CSS ───────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap');
 
-/* ── Reset & base ── */
 html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
 #MainMenu, footer, header { visibility: hidden; }
 .stApp { background: #0B0F1A; color: #E8EDFB; }
+
+/* Remove ALL Streamlit container padding */
 .block-container { padding: 0 !important; max-width: 100% !important; }
+[data-testid="stAppViewBlockContainer"] { padding: 0 !important; }
+section[data-testid="stMain"] > div:first-child { padding-top: 0 !important; }
+[data-testid="stVerticalBlock"] { gap: 0 !important; }
+[data-testid="stVerticalBlockBorderWrapper"] { gap: 0 !important; }
 
-/* ── Scrollbar ── */
-::-webkit-scrollbar { width: 6px; }
+/* Remove column padding */
+[data-testid="column"] { padding: 0 !important; }
+[data-testid="stHorizontalBlock"] { gap: 0 !important; padding: 0 !important; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; }
 ::-webkit-scrollbar-track { background: #0B0F1A; }
-::-webkit-scrollbar-thumb { background: #1E2740; border-radius: 3px; }
-
-/* ── Smooth scroll ── */
+::-webkit-scrollbar-thumb { background: #2A3A62; border-radius: 3px; }
 html { scroll-behavior: smooth; }
 
-/* ═══════════════════════════════════════════════
-   NAV
-═══════════════════════════════════════════════ */
+/* ── NAV ── */
 .fl-nav {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 16px 48px;
-  background: rgba(11,15,26,0.85);
+  padding: 16px 56px;
+  background: rgba(11,15,26,0.9);
   border-bottom: 1px solid rgba(255,255,255,0.07);
   position: sticky; top: 0; z-index: 100;
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(14px);
 }
-.fl-logo { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; color: #fff; letter-spacing: -0.5px; }
-.fl-logo span { color: #7B8FD4; }
-.fl-nav-links { display: flex; gap: 32px; }
-.fl-nav-links a { font-size: 13px; color: rgba(255,255,255,0.4); text-decoration: none; transition: color 0.2s; }
-.fl-nav-links a:hover { color: rgba(255,255,255,0.85); }
+.fl-logo { font-family:'Syne',sans-serif; font-size:22px; font-weight:700; color:#fff; letter-spacing:-0.5px; }
+.fl-logo span { color:#7B8FD4; }
+.fl-nav-links { display:flex; gap:32px; }
+.fl-nav-links a { font-size:13px; color:rgba(255,255,255,0.42); text-decoration:none; }
+.fl-nav-links a:hover { color:#fff; }
 .fl-nav-btn {
-  background: #2A3F8F; color: #C8D4F8; font-size: 13px; font-weight: 500;
-  padding: 8px 22px; border-radius: 10px; border: none; cursor: pointer;
-  text-decoration: none; transition: background 0.2s;
+  background:#2A3F8F; color:#C8D4F8; font-size:13px; font-weight:500;
+  padding:8px 22px; border-radius:10px; border:none; cursor:pointer; text-decoration:none;
 }
-.fl-nav-btn:hover { background: #3A52A8; }
 
-/* ═══════════════════════════════════════════════
-   HERO
-═══════════════════════════════════════════════ */
+/* ── HERO ── */
 .fl-hero {
-  padding: 80px 48px 68px; text-align: center;
-  background: #0B0F1A; position: relative; overflow: hidden;
+  background:#0B0F1A; text-align:center;
+  padding: 72px 24px 40px; position:relative; overflow:hidden;
 }
 .fl-hero-glow {
-  position: absolute; top: -60px; left: 50%; transform: translateX(-50%);
-  width: 700px; height: 400px;
-  background: rgba(42,63,143,0.12);
-  border-radius: 50%; filter: blur(80px); pointer-events: none;
+  position:absolute; top:-80px; left:50%; transform:translateX(-50%);
+  width:700px; height:420px; background:rgba(42,63,143,0.13);
+  border-radius:50%; filter:blur(80px); pointer-events:none;
 }
 .fl-badge {
-  display: inline-flex; align-items: center; gap: 8px;
-  background: rgba(42,63,143,0.18);
-  border: 1px solid rgba(123,143,212,0.25);
-  color: #A0B4F0; font-size: 11px; letter-spacing: 0.12em;
-  text-transform: uppercase; padding: 5px 16px; border-radius: 100px; margin-bottom: 24px;
+  display:inline-flex; align-items:center; gap:8px;
+  background:rgba(42,63,143,0.18); border:1px solid rgba(123,143,212,0.28);
+  color:#A0B4F0; font-size:11px; letter-spacing:0.12em; text-transform:uppercase;
+  padding:5px 16px; border-radius:100px; margin-bottom:24px;
 }
-.fl-badge-dot { width: 6px; height: 6px; border-radius: 50%; background: #7B8FD4; }
+.fl-badge-dot { width:6px; height:6px; border-radius:50%; background:#7B8FD4; }
 .fl-hero h1 {
-  font-family: 'Syne', sans-serif; font-size: 52px; font-weight: 800;
-  color: #fff; line-height: 1.06; letter-spacing: -1.2px; margin-bottom: 18px;
+  font-family:'Syne',sans-serif; font-size:54px; font-weight:800;
+  color:#fff; line-height:1.06; letter-spacing:-1.2px; margin-bottom:18px;
 }
-.fl-hero h1 em { font-style: normal; color: #7B8FD4; }
+.fl-hero h1 em { font-style:normal; color:#7B8FD4; }
 .fl-hero-sub {
-  font-size: 16px; color: rgba(255,255,255,0.36);
-  max-width: 480px; margin: 0 auto 40px; line-height: 1.75;
+  font-size:16px; color:rgba(255,255,255,0.38);
+  max-width:460px; margin:0 auto 0; line-height:1.75; text-align:center;
 }
-.fl-stats-row {
-  display: flex; gap: 0; justify-content: center; margin-top: 44px;
-  border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; overflow: hidden;
-  max-width: 380px; margin-left: auto; margin-right: auto;
-}
-.fl-stat { flex: 1; padding: 16px 20px; text-align: center; border-right: 1px solid rgba(255,255,255,0.08); }
-.fl-stat:last-child { border-right: none; }
-.fl-stat-n { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; color: #7B8FD4; }
-.fl-stat-l { font-size: 11px; color: rgba(255,255,255,0.28); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 3px; }
 
-/* ── Input card ── */
+/* ── INPUT ZONE ── */
+.fl-input-zone {
+  background:#0B0F1A; padding: 28px 0 20px;
+  display:flex; justify-content:center;
+}
 .fl-input-card {
-  max-width: 620px; margin: 0 auto;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 18px; padding: 22px 24px;
+  width:100%; max-width:600px;
+  background:rgba(255,255,255,0.045);
+  border:1px solid rgba(255,255,255,0.11);
+  border-radius:18px; padding:20px 22px;
+  margin: 0 auto;
 }
 .fl-input-hint {
-  font-size: 11px; color: rgba(255,255,255,0.2);
-  display: flex; align-items: center; gap: 5px; margin-top: 10px;
+  font-size:11px; color:rgba(255,255,255,0.22);
+  text-align:center; margin-top:8px; padding-bottom:2px;
 }
 
-/* ── Kill ALL Streamlit default spacing in hero zone ── */
-.fl-hero-body { background: #0B0F1A; padding: 0 48px 56px; }
-.fl-hero-body .stSelectbox { margin-bottom: 10px !important; }
-.fl-hero-body > div, .fl-hero-body .stButton { margin: 0 !important; padding: 0 !important; }
+/* ── STATS ── */
+.fl-stats-zone { background:#0B0F1A; padding:20px 0 60px; display:flex; justify-content:center; }
+.fl-stats-row {
+  display:flex; border:1px solid rgba(255,255,255,0.08);
+  border-radius:14px; overflow:hidden;
+}
+.fl-stat { padding:14px 28px; text-align:center; border-right:1px solid rgba(255,255,255,0.08); }
+.fl-stat:last-child { border-right:none; }
+.fl-stat-n { font-family:'Syne',sans-serif; font-size:22px; font-weight:700; color:#7B8FD4; }
+.fl-stat-l { font-size:11px; color:rgba(255,255,255,0.28); text-transform:uppercase; letter-spacing:0.08em; margin-top:3px; }
 
-/* ── Column gutters: remove Streamlit's default column gap ── */
-[data-testid="column"] { padding: 0 8px !important; }
-
-/* ── Selectbox full restyle ── */
+/* ── Streamlit widget overrides ── */
+.stSelectbox label, .stTextArea label, .stTextInput label, .stFileUploader label { display:none !important; }
 .stSelectbox > div > div {
-  background: rgba(255,255,255,0.06) !important;
-  border: 1px solid rgba(255,255,255,0.12) !important;
-  border-radius: 10px !important; color: #C8D4F0 !important;
-  font-size: 13px !important;
+  background:rgba(255,255,255,0.05) !important;
+  border:1px solid rgba(255,255,255,0.11) !important;
+  border-radius:10px !important; color:#C8D4F0 !important;
+  font-size:13px !important; font-family:'DM Sans',sans-serif !important;
 }
-.stSelectbox > div > div:hover { border-color: rgba(123,143,212,0.4) !important; }
-
-/* ── Text input (URL mode) ── */
-.stTextInput input {
-  background: rgba(255,255,255,0.03) !important;
-  border: 1px solid rgba(255,255,255,0.08) !important;
-  border-radius: 10px !important; color: #C8D4F0 !important;
-  font-size: 14px !important;
-}
-.stTextInput input::placeholder { color: rgba(255,255,255,0.18) !important; }
-.stTextInput label { display: none !important; }
-
-/* ── Override Streamlit textarea ── */
 .stTextArea textarea {
-  background: rgba(255,255,255,0.03) !important;
-  border: 1px solid rgba(255,255,255,0.08) !important;
-  border-radius: 10px !important;
-  color: #C8D4F0 !important;
-  font-family: 'DM Sans', sans-serif !important;
-  font-size: 14px !important;
-  resize: none !important;
+  background:rgba(255,255,255,0.03) !important;
+  border:1px solid rgba(255,255,255,0.08) !important;
+  border-radius:10px !important; color:#C8D4F0 !important;
+  font-family:'DM Sans',sans-serif !important; font-size:14px !important;
+  resize:none !important; line-height:1.65 !important;
 }
-.stTextArea textarea::placeholder { color: rgba(255,255,255,0.18) !important; }
-.stTextArea textarea:focus { border-color: rgba(123,143,212,0.4) !important; box-shadow: none !important; }
-.stTextArea label { display: none !important; }
-
-/* ── Override Streamlit file uploader ── */
-.stFileUploader {
-  background: rgba(255,255,255,0.03) !important;
-  border: 1px dashed rgba(255,255,255,0.12) !important;
-  border-radius: 10px !important;
+.stTextArea textarea::placeholder { color:rgba(255,255,255,0.18) !important; }
+.stTextArea textarea:focus { border-color:rgba(123,143,212,0.4) !important; box-shadow:none !important; }
+.stTextInput input {
+  background:rgba(255,255,255,0.03) !important;
+  border:1px solid rgba(255,255,255,0.08) !important;
+  border-radius:10px !important; color:#C8D4F0 !important; font-size:14px !important;
 }
-.stFileUploader label { color: rgba(255,255,255,0.4) !important; font-size: 13px !important; }
-[data-testid="stFileUploaderDropzoneInstructions"] { color: rgba(255,255,255,0.3) !important; }
-
-/* ── Verify button ── */
+.stTextInput input::placeholder { color:rgba(255,255,255,0.18) !important; }
+.stFileUploader > div {
+  background:rgba(255,255,255,0.03) !important;
+  border:1px dashed rgba(255,255,255,0.12) !important;
+  border-radius:10px !important;
+}
+[data-testid="stFileUploaderDropzoneInstructions"] { color:rgba(255,255,255,0.3) !important; }
 .stButton > button {
-  background: #2A3F8F !important; color: #C8D4F8 !important;
-  border: none !important; border-radius: 10px !important;
-  padding: 10px 28px !important; font-family: 'Syne', sans-serif !important;
-  font-size: 14px !important; font-weight: 600 !important;
-  width: 100% !important; transition: background 0.2s !important;
+  background:#2A3F8F !important; color:#C8D4F8 !important;
+  border:none !important; border-radius:10px !important;
+  padding:10px 28px !important; font-family:'Syne',sans-serif !important;
+  font-size:14px !important; font-weight:600 !important;
+  width:100% !important; margin-top:10px !important;
 }
-.stButton > button:hover { background: #3A52A8 !important; }
+.stButton > button:hover { background:#3A52A8 !important; }
+.stSuccess { border-radius:10px !important; }
+.stSpinner > div { border-top-color:#7B8FD4 !important; }
 
-/* ═══════════════════════════════════════════════
-   DIVIDER
-═══════════════════════════════════════════════ */
-.fl-divider { height: 1px; background: rgba(255,255,255,0.06); margin: 0; }
+/* ── DIVIDER ── */
+.fl-divider { height:1px; background:rgba(255,255,255,0.06); }
 
-/* ═══════════════════════════════════════════════
-   SECTIONS
-═══════════════════════════════════════════════ */
-.fl-section { padding: 64px 48px; background: #0D1220; }
-.fl-section-alt { padding: 64px 48px; background: #0B0F1A; }
-.fl-section-white { padding: 64px 48px; background: #F4F6FC; }
-.fl-slabel {
-  font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em;
-  color: rgba(255,255,255,0.28); text-align: center; margin-bottom: 8px;
-}
-.fl-slabel-dark { color: rgba(10,14,26,0.38); }
-.fl-stitle {
-  font-family: 'Syne', sans-serif; font-size: 30px; font-weight: 700;
-  color: #fff; text-align: center; margin-bottom: 8px; letter-spacing: -0.4px;
-}
-.fl-stitle-dark { color: #0A0E1A; }
-.fl-ssub { font-size: 14px; color: rgba(255,255,255,0.32); text-align: center; margin-bottom: 40px; line-height: 1.7; }
-.fl-ssub-dark { color: rgba(10,14,26,0.42); }
+/* ── SECTIONS ── */
+.fl-section     { padding:64px 56px; background:#0D1220; }
+.fl-section-alt { padding:64px 56px; background:#0B0F1A; }
+.fl-section-white { padding:64px 56px; background:#F4F6FC; }
+.fl-slabel { font-size:11px; text-transform:uppercase; letter-spacing:0.14em; color:rgba(255,255,255,0.28); text-align:center; margin-bottom:8px; }
+.fl-slabel-dark { color:rgba(10,14,26,0.38); }
+.fl-stitle { font-family:'Syne',sans-serif; font-size:30px; font-weight:700; color:#fff; text-align:center; margin-bottom:8px; letter-spacing:-0.4px; }
+.fl-stitle-dark { color:#0A0E1A; }
+.fl-ssub { font-size:14px; color:rgba(255,255,255,0.32); text-align:center; margin-bottom:40px; line-height:1.7; }
+.fl-ssub-dark { color:rgba(10,14,26,0.42); }
 
 /* ── Steps ── */
-.fl-steps {
-  display: grid; grid-template-columns: repeat(4,1fr);
-  gap: 1px; background: rgba(255,255,255,0.06);
-  border-radius: 16px; overflow: hidden;
-  max-width: 900px; margin: 0 auto;
-}
-.fl-step { background: #0D1220; padding: 24px 20px; }
-.fl-step-icon { font-size: 24px; color: rgba(123,143,212,0.7); margin-bottom: 12px; }
-.fl-step-n {
-  width: 30px; height: 30px; border-radius: 50%;
-  background: rgba(42,63,143,0.2); border: 1px solid rgba(123,143,212,0.25);
-  color: #7B8FD4; font-size: 12px; font-weight: 600;
-  display: flex; align-items: center; justify-content: center; margin-bottom: 12px;
-}
-.fl-step-t { font-size: 14px; font-weight: 500; color: #fff; margin-bottom: 6px; }
-.fl-step-d { font-size: 12px; color: rgba(255,255,255,0.3); line-height: 1.65; }
+.fl-steps { display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:rgba(255,255,255,0.06); border-radius:16px; overflow:hidden; max-width:900px; margin:0 auto; }
+.fl-step { background:#0D1220; padding:24px 20px; }
+.fl-step-icon { font-size:22px; margin-bottom:10px; }
+.fl-step-n { width:30px; height:30px; border-radius:50%; background:rgba(42,63,143,0.2); border:1px solid rgba(123,143,212,0.25); color:#7B8FD4; font-size:12px; font-weight:600; display:flex; align-items:center; justify-content:center; margin-bottom:12px; }
+.fl-step-t { font-size:14px; font-weight:500; color:#fff; margin-bottom:6px; }
+.fl-step-d { font-size:12px; color:rgba(255,255,255,0.3); line-height:1.65; }
 
 /* ── Features ── */
-.fl-feat-grid {
-  display: grid; grid-template-columns: repeat(3,1fr); gap: 14px;
-  max-width: 900px; margin: 0 auto;
-}
-.fl-fc {
-  background: #fff; border: 1px solid rgba(10,14,26,0.08);
-  border-radius: 14px; padding: 22px 20px;
-}
-.fl-fc-icon { font-size: 24px; color: #2A3F8F; margin-bottom: 12px; }
-.fl-fc-t { font-size: 14px; font-weight: 500; color: #0A0E1A; margin-bottom: 6px; }
-.fl-fc-d { font-size: 12px; color: rgba(10,14,26,0.45); line-height: 1.65; }
+.fl-feat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; max-width:900px; margin:0 auto; }
+.fl-fc { background:#fff; border:1px solid rgba(10,14,26,0.08); border-radius:14px; padding:22px 20px; }
+.fl-fc-icon { font-size:22px; margin-bottom:12px; }
+.fl-fc-t { font-size:14px; font-weight:500; color:#0A0E1A; margin-bottom:6px; }
+.fl-fc-d { font-size:12px; color:rgba(10,14,26,0.45); line-height:1.65; }
 
 /* ── Results ── */
-.fl-sum-pills { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 28px; }
-.fl-pill {
-  display: flex; align-items: center; gap: 6px;
-  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 100px; padding: 5px 16px; font-size: 12px; color: rgba(255,255,255,0.38);
-}
-.fl-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+.fl-sum-pills { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-bottom:28px; }
+.fl-pill { display:flex; align-items:center; gap:6px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:100px; padding:5px 16px; font-size:12px; color:rgba(255,255,255,0.38); }
+.fl-dot { width:7px; height:7px; border-radius:50%; display:inline-block; }
+.fl-results-wrap { max-width:700px; margin:0 auto; display:flex; flex-direction:column; gap:12px; }
+.fl-rc { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:18px 20px; }
+.fl-rc-v { border-left:3px solid #22C55E; border-radius:0 14px 14px 0; }
+.fl-rc-w { border-left:3px solid #F59E0B; border-radius:0 14px 14px 0; }
+.fl-rc-f { border-left:3px solid #EF4444; border-radius:0 14px 14px 0; }
+.fl-rc-u { border-left:3px solid #4A5A80; border-radius:0 14px 14px 0; }
+.fl-rc-top { display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+.fl-rc-num { font-size:11px; color:rgba(255,255,255,0.28); background:rgba(255,255,255,0.06); padding:2px 10px; border-radius:100px; }
+.fl-rc-cat { font-size:11px; color:rgba(255,255,255,0.28); background:rgba(255,255,255,0.06); padding:2px 10px; border-radius:100px; }
+.fl-bv { font-size:11px; font-weight:500; padding:2px 12px; border-radius:100px; background:#052E16; color:#4ADE80; border:1px solid #166534; }
+.fl-bw { font-size:11px; font-weight:500; padding:2px 12px; border-radius:100px; background:#451A03; color:#FBBF24; border:1px solid #92400E; }
+.fl-bf { font-size:11px; font-weight:500; padding:2px 12px; border-radius:100px; background:#2D0707; color:#F87171; border:1px solid #7F1D1D; }
+.fl-bu { font-size:11px; font-weight:500; padding:2px 12px; border-radius:100px; background:#111827; color:#9CA3AF; border:1px solid #374151; }
+.fl-rc-claim { font-size:13px; color:rgba(255,255,255,0.6); line-height:1.65; margin-bottom:10px; font-style:italic; }
+.fl-rc-sep { height:1px; background:rgba(255,255,255,0.06); margin:10px 0; }
+.fl-rc-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.1em; color:#7B8FD4; margin-bottom:4px; }
+.fl-rc-find { font-size:13px; color:rgba(255,255,255,0.42); line-height:1.6; }
 
-/* ── Claim cards ── */
-.fl-results-wrap { max-width: 680px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
-.fl-rc {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 14px; padding: 18px 20px;
-}
-.fl-rc-v { border-left: 3px solid #22C55E; border-radius: 0 14px 14px 0; }
-.fl-rc-w { border-left: 3px solid #F59E0B; border-radius: 0 14px 14px 0; }
-.fl-rc-f { border-left: 3px solid #EF4444; border-radius: 0 14px 14px 0; }
-.fl-rc-u { border-left: 3px solid #4A5A80; border-radius: 0 14px 14px 0; }
-.fl-rc-top { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
-.fl-rc-num {
-  font-size: 11px; color: rgba(255,255,255,0.28);
-  background: rgba(255,255,255,0.06); padding: 2px 10px; border-radius: 100px;
-}
-.fl-rc-cat {
-  font-size: 11px; color: rgba(255,255,255,0.28);
-  background: rgba(255,255,255,0.06); padding: 2px 10px; border-radius: 100px;
-}
-.fl-bv { font-size: 11px; font-weight: 500; padding: 2px 12px; border-radius: 100px; background: #052E16; color: #4ADE80; border: 1px solid #166534; }
-.fl-bw { font-size: 11px; font-weight: 500; padding: 2px 12px; border-radius: 100px; background: #451A03; color: #FBBF24; border: 1px solid #92400E; }
-.fl-bf { font-size: 11px; font-weight: 500; padding: 2px 12px; border-radius: 100px; background: #2D0707; color: #F87171; border: 1px solid #7F1D1D; }
-.fl-bu { font-size: 11px; font-weight: 500; padding: 2px 12px; border-radius: 100px; background: #111827; color: #9CA3AF; border: 1px solid #374151; }
-.fl-rc-claim { font-size: 13px; color: rgba(255,255,255,0.6); line-height: 1.65; margin-bottom: 10px; font-style: italic; }
-.fl-rc-sep { height: 1px; background: rgba(255,255,255,0.06); margin: 10px 0; }
-.fl-rc-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: #7B8FD4; margin-bottom: 4px; }
-.fl-rc-find { font-size: 13px; color: rgba(255,255,255,0.4); line-height: 1.6; }
+/* ── Stat cards ── */
+.fl-stat-row { display:flex; gap:12px; margin:24px auto; max-width:700px; }
+.fl-stat-card { flex:1; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:16px; text-align:center; }
+.fl-stat-card-n { font-family:'Syne',sans-serif; font-size:28px; font-weight:700; color:#7B8FD4; }
+.fl-stat-card-l { font-size:11px; color:rgba(255,255,255,0.28); text-transform:uppercase; letter-spacing:0.08em; margin-top:4px; }
 
-/* ── About / cert badge ── */
-.fl-about-card {
-  max-width: 560px; margin: 0 auto;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.09);
-  border-radius: 18px; padding: 36px 32px; text-align: center;
-}
-.fl-cert-badge {
-  display: inline-flex; align-items: center; gap: 12px;
-  background: rgba(42,63,143,0.14);
-  border: 1px solid rgba(123,143,212,0.22);
-  border-radius: 12px; padding: 10px 18px; margin-bottom: 22px;
-}
-.fl-cert-icon { font-size: 22px; color: #7B8FD4; }
-.fl-cert-text { text-align: left; }
-.fl-cert-text strong { display: block; font-size: 13px; font-weight: 500; color: #C7D2FE; margin-bottom: 2px; }
-.fl-cert-text span { font-size: 12px; color: rgba(255,255,255,0.35); }
-.fl-about-p { font-size: 14px; color: rgba(255,255,255,0.36); line-height: 1.75; margin-bottom: 26px; }
-.fl-about-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
-.fl-abtn-p {
-  background: #2A3F8F; color: #C8D4F8; font-size: 13px; font-weight: 500;
-  padding: 10px 26px; border-radius: 10px; border: none; cursor: pointer;
-  text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
-}
-.fl-abtn-s {
-  background: transparent; color: rgba(255,255,255,0.38); font-size: 13px;
-  padding: 10px 22px; border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.1); cursor: pointer;
-  text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
-}
-
-/* ── Stat cards (inline results summary) ── */
-.fl-stat-row { display: flex; gap: 12px; margin: 24px auto; max-width: 680px; }
-.fl-stat-card {
-  flex: 1; background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 12px; padding: 16px; text-align: center;
-}
-.fl-stat-card-n { font-family: 'Syne', sans-serif; font-size: 28px; font-weight: 700; color: #7B8FD4; }
-.fl-stat-card-l { font-size: 11px; color: rgba(255,255,255,0.28); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 4px; }
+/* ── About ── */
+.fl-about-card { max-width:540px; margin:0 auto; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.09); border-radius:18px; padding:36px 32px; text-align:center; }
+.fl-cert-badge { display:inline-flex; align-items:center; gap:12px; background:rgba(42,63,143,0.14); border:1px solid rgba(123,143,212,0.22); border-radius:12px; padding:10px 18px; margin-bottom:22px; }
+.fl-cert-text { text-align:left; }
+.fl-cert-text strong { display:block; font-size:13px; font-weight:500; color:#C7D2FE; margin-bottom:2px; }
+.fl-cert-text span { font-size:12px; color:rgba(255,255,255,0.35); }
+.fl-about-p { font-size:14px; color:rgba(255,255,255,0.36); line-height:1.75; margin-bottom:26px; }
+.fl-about-btns { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+.fl-abtn-p { background:#2A3F8F; color:#C8D4F8; font-size:13px; font-weight:500; padding:10px 26px; border-radius:10px; border:none; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px; }
+.fl-abtn-s { background:transparent; color:rgba(255,255,255,0.38); font-size:13px; padding:10px 22px; border-radius:10px; border:1px solid rgba(255,255,255,0.1); cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:6px; }
 
 /* ── Footer ── */
-.fl-footer {
-  background: #060810; border-top: 1px solid rgba(255,255,255,0.05);
-  padding: 28px 48px; display: flex; align-items: center; justify-content: space-between;
-}
-.fl-footer-logo { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; color: rgba(255,255,255,0.28); }
-.fl-footer-logo span { color: #2A3F8F; }
-.fl-footer-links { display: flex; gap: 20px; }
-.fl-footer-links a { font-size: 12px; color: rgba(255,255,255,0.16); text-decoration: none; }
-.fl-footer-copy { font-size: 11px; color: rgba(255,255,255,0.12); }
-
-/* ── Spinner override ── */
-.stSpinner > div { border-top-color: #7B8FD4 !important; }
-
-/* ── Alert overrides ── */
-.stSuccess, .stError, .stWarning, .stInfo { border-radius: 10px !important; }
-
-/* ── Remove Streamlit's default element top padding ── */
-.stSelectbox, .stTextArea, .stTextInput, .stFileUploader, .stButton {
-  margin-top: 0 !important; padding-top: 0 !important;
-}
+.fl-footer { background:#060810; border-top:1px solid rgba(255,255,255,0.05); padding:28px 56px; display:flex; align-items:center; justify-content:space-between; }
+.fl-footer-logo { font-family:'Syne',sans-serif; font-size:16px; font-weight:700; color:rgba(255,255,255,0.28); }
+.fl-footer-logo span { color:#2A3F8F; }
+.fl-footer-links { display:flex; gap:20px; }
+.fl-footer-links a { font-size:12px; color:rgba(255,255,255,0.16); text-decoration:none; }
+.fl-footer-copy { font-size:11px; color:rgba(255,255,255,0.12); }
 </style>
 """, unsafe_allow_html=True)
 
-# ── Helpers ────────────────────────────────────────────────────────────────────
+# ── Helpers ──────────────────────────────────────────────────────────────────
 def extract_json_array(text):
     text = re.sub(r"```json|```", "", text).strip()
     text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', text)
@@ -394,105 +297,82 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# HERO
+# HERO TEXT
 # ═══════════════════════════════════════════════════════════════════════════════
 st.markdown("""
-<div class="fl-hero" id="verify" style="padding-bottom: 32px;">
+<div class="fl-hero" id="verify">
   <div class="fl-hero-glow"></div>
-  <div class="fl-badge">
-    <span class="fl-badge-dot"></span>
-    AI-powered fact verification
-  </div>
+  <div class="fl-badge"><span class="fl-badge-dot"></span>AI-powered fact verification</div>
   <h1>Paste any text.<br>Know what's <em>actually</em> true.</h1>
-  <p class="fl-hero-sub">
-    No account. No API keys. Drop any paragraph, news snippet, or WhatsApp forward —
-    FactLens checks it against live web sources in seconds.
-  </p>
+  <p class="fl-hero-sub">No account. No API keys. Drop any paragraph, news snippet, or WhatsApp
+  forward — FactLens checks it against live web sources in seconds.</p>
 </div>
-<div style="background:#0B0F1A; padding: 0 0 8px;">
-  <div class="fl-input-card">
 """, unsafe_allow_html=True)
 
-verify = False
-input_text = ""
+# ═══════════════════════════════════════════════════════════════════════════════
+# INPUT CARD — centred using columns, card styling applied to middle col content
+# ═══════════════════════════════════════════════════════════════════════════════
+_, mid, _ = st.columns([0.15, 0.7, 0.15])
 
-col_l, col_c, col_r = st.columns([1, 2.8, 1])
-with col_c:
+with mid:
+    st.markdown('<div class="fl-input-card">', unsafe_allow_html=True)
 
-    # Mode tabs (visual only — we toggle with selectbox)
     mode = st.selectbox(
-        "Input mode",
+        "mode",
         ["📝  Paste text", "🔗  Paste URL", "📄  Upload PDF"],
-        label_visibility="collapsed"
+        label_visibility="collapsed",
     )
+
+    verify   = False
+    input_text = ""
 
     if mode == "📝  Paste text":
         input_text = st.text_area(
-            "Text input",
+            "text",
             placeholder="Paste any text here — a news article, WhatsApp forward, or any claim you want verified...",
-            height=120,
-            label_visibility="collapsed"
+            height=130,
+            label_visibility="collapsed",
         )
 
     elif mode == "🔗  Paste URL":
-        url_input = st.text_input(
-            "URL",
-            placeholder="https://example.com/article",
-            label_visibility="collapsed"
-        )
-        if url_input:
+        url_val = st.text_input("url", placeholder="https://example.com/article", label_visibility="collapsed")
+        if url_val:
             try:
                 import urllib.request
                 from html.parser import HTMLParser
-                class TextExtractor(HTMLParser):
+                class _TX(HTMLParser):
                     def __init__(self):
-                        super().__init__()
-                        self.text = []
-                        self.skip = False
-                    def handle_starttag(self, tag, attrs):
-                        if tag in ('script','style','nav','footer'): self.skip = True
-                    def handle_endtag(self, tag):
-                        if tag in ('script','style','nav','footer'): self.skip = False
-                    def handle_data(self, data):
-                        if not self.skip and data.strip(): self.text.append(data.strip())
-                req = urllib.request.Request(url_input, headers={"User-Agent":"Mozilla/5.0"})
-                with urllib.request.urlopen(req, timeout=10) as r:
-                    html = r.read().decode("utf-8", errors="ignore")
-                parser = TextExtractor()
-                parser.feed(html)
-                input_text = " ".join(parser.text)[:5000]
-                st.success(f"✅ Fetched {len(input_text):,} characters from URL")
+                        super().__init__(); self.bits=[]; self.skip=False
+                    def handle_starttag(self,t,a):
+                        if t in('script','style','nav','footer'): self.skip=True
+                    def handle_endtag(self,t):
+                        if t in('script','style','nav','footer'): self.skip=False
+                    def handle_data(self,d):
+                        if not self.skip and d.strip(): self.bits.append(d.strip())
+                req=urllib.request.Request(url_val,headers={"User-Agent":"Mozilla/5.0"})
+                with urllib.request.urlopen(req,timeout=10) as r:
+                    html=r.read().decode("utf-8",errors="ignore")
+                p=_TX(); p.feed(html)
+                input_text=" ".join(p.bits)[:5000]
+                st.success(f"✅ Fetched {len(input_text):,} characters")
             except Exception as e:
                 st.error(f"Could not fetch URL: {e}")
 
-    else:  # PDF
-        uploaded = st.file_uploader(
-            "Upload PDF",
-            type="pdf",
-            label_visibility="collapsed"
-        )
+    else:
+        uploaded = st.file_uploader("pdf", type="pdf", label_visibility="collapsed")
         if uploaded:
             with pdfplumber.open(uploaded) as pdf:
                 input_text = "".join(p.extract_text() or "" for p in pdf.pages)
             st.success(f"✅ {uploaded.name} — {len(input_text):,} characters extracted")
 
-    st.markdown("""
-    <div class="fl-input-hint">
-      🔒 Powered by Groq LLM + Tavily live web search &nbsp;·&nbsp; Your text is never stored
-    </div>
-    """, unsafe_allow_html=True)
-
+    st.markdown('<p class="fl-input-hint">🔒 Groq LLM + Tavily live web search &nbsp;·&nbsp; Your text is never stored</p>', unsafe_allow_html=True)
     verify = st.button("🔬  Verify claims", use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
+# ── Stats ─────────────────────────────────────────────────────────────────────
 st.markdown("""
-  </div>
-</div>
-""", unsafe_allow_html=True)
-
-# ── Stats row ─────────────────────────────────────────────────────────────────
-st.markdown("""
-<div style="background:#0B0F1A; padding: 24px 0 56px; text-align:center;">
-  <div class="fl-stats-row" style="max-width:380px;margin:0 auto;">
+<div class="fl-stats-zone">
+  <div class="fl-stats-row">
     <div class="fl-stat"><div class="fl-stat-n">3–8</div><div class="fl-stat-l">Claims found</div></div>
     <div class="fl-stat"><div class="fl-stat-n">&lt;15s</div><div class="fl-stat-l">Avg check time</div></div>
     <div class="fl-stat"><div class="fl-stat-n">Live</div><div class="fl-stat-l">Web sources</div></div>
@@ -501,24 +381,23 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# VERIFICATION LOGIC
+# VERIFICATION
 # ═══════════════════════════════════════════════════════════════════════════════
 if verify:
     if not input_text.strip():
         st.warning("Please provide some text, a URL, or upload a PDF first.")
     elif not GROQ_API_KEY or not TAVILY_API_KEY:
-        st.error("API keys are not configured. Please set GROQ_API_KEY and TAVILY_API_KEY in your Render environment variables.")
+        st.error("API keys not configured — add GROQ_API_KEY and TAVILY_API_KEY in Render → Environment.")
     else:
         client = Groq(api_key=GROQ_API_KEY)
         tavily = TavilyClient(api_key=TAVILY_API_KEY)
 
-        # Step 1 — Extract claims
-        with st.spinner("🤖 Analysing text and extracting claims..."):
+        with st.spinner("🤖 Extracting claims from your text..."):
             prompt = f"""
 You are an expert fact-checking assistant. From the text below, extract between 3 and 8 specific, verifiable claims.
 
 For each claim also write:
-- "purpose": one sentence explaining WHY this claim matters or what it is trying to establish (for a non-expert reader)
+- "purpose": one sentence explaining WHY this claim matters (for a non-expert reader)
 - "category": one of [Diagnostics, Treatment, Climate, AI & Tech, Economics, Policy & Law, Politics, Data & Privacy, Ethics & Bias, General]
 
 Return ONLY a valid JSON array. No markdown, no commentary.
@@ -532,73 +411,56 @@ Format:
   }}
 ]
 
-Rules:
-- Prefer concrete, verifiable assertions
-- Each claim must be a complete sentence
-- Extract 3–8 claims maximum
-
 Text:
 {input_text[:4500]}
 """
             resp = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
-                messages=[{"role": "user", "content": prompt}],
+                messages=[{"role":"user","content":prompt}],
                 temperature=0
             )
             raw = resp.choices[0].message.content.strip()
             claims_data = extract_json_array(raw)
 
-        # Normalise
         claims = []
         for item in claims_data:
             if isinstance(item, dict):
                 claims.append({
                     "claim":    item.get("claim", str(item)),
                     "purpose":  item.get("purpose", ""),
-                    "category": item.get("category", get_category(item.get("claim", "")))
+                    "category": item.get("category", get_category(item.get("claim","")))
                 })
             else:
-                claims.append({"claim": str(item), "purpose": "", "category": get_category(str(item))})
+                claims.append({"claim":str(item),"purpose":"","category":get_category(str(item))})
 
         if not claims:
-            st.error("❌ Could not extract claims. Try pasting more specific or factual text.")
+            st.error("Could not extract claims — try pasting more specific or factual text.")
             st.stop()
 
-        # Step 2 — Summary stats
         st.markdown(f"""
-<div class="fl-section-alt" style="padding:40px 48px 10px">
+<div class="fl-section-alt" style="padding:40px 56px 16px">
   <div style="text-align:center;margin-bottom:6px">
     <div class="fl-slabel">Analysis complete</div>
     <div class="fl-stitle">{len(claims)} claims found</div>
     <div class="fl-ssub">Verifying each one against live web sources now...</div>
   </div>
   <div class="fl-stat-row">
-    <div class="fl-stat-card">
-      <div class="fl-stat-card-n">{len(claims)}</div>
-      <div class="fl-stat-card-l">Claims extracted</div>
-    </div>
-    <div class="fl-stat-card">
-      <div class="fl-stat-card-n">{len(set(c['category'] for c in claims))}</div>
-      <div class="fl-stat-card-l">Topics covered</div>
-    </div>
-    <div class="fl-stat-card">
-      <div class="fl-stat-card-n">{len(input_text):,}</div>
-      <div class="fl-stat-card-l">Characters scanned</div>
-    </div>
+    <div class="fl-stat-card"><div class="fl-stat-card-n">{len(claims)}</div><div class="fl-stat-card-l">Claims extracted</div></div>
+    <div class="fl-stat-card"><div class="fl-stat-card-n">{len(set(c['category'] for c in claims))}</div><div class="fl-stat-card-l">Topics covered</div></div>
+    <div class="fl-stat-card"><div class="fl-stat-card-n">{len(input_text):,}</div><div class="fl-stat-card-l">Characters scanned</div></div>
   </div>
 </div>
 """, unsafe_allow_html=True)
 
-        # Step 3 — Verify each claim
-        counts = {"Verified": 0, "Inaccurate": 0, "False": 0, "Unverifiable": 0}
-        result_cards_html = []
+        counts = {"Verified":0,"Inaccurate":0,"False":0,"Unverifiable":0}
+        cards  = []
 
         for i, item in enumerate(claims):
             claim    = item["claim"]
             purpose  = item["purpose"]
             category = item["category"]
 
-            with st.spinner(f"Verifying claim {i+1} of {len(claims)}: {claim[:60]}..."):
+            with st.spinner(f"Verifying claim {i+1} of {len(claims)}..."):
                 try:
                     try:
                         sr = tavily.search(query=claim, search_depth="basic", max_results=3)
@@ -632,23 +494,23 @@ verdict must be exactly one of: "Verified", "Inaccurate", "False", "Unverifiable
 """
                         vr = client.chat.completions.create(
                             model="llama-3.3-70b-versatile",
-                            messages=[{"role": "user", "content": vp}],
+                            messages=[{"role":"user","content":vp}],
                             temperature=0
                         )
                         vd = extract_json_object(vr.choices[0].message.content.strip())
-                        verdict     = vd.get("verdict", "Unverifiable") if vd else "Unverifiable"
-                        explanation = vd.get("explanation", "No explanation.") if vd else "Could not parse response."
+                        verdict     = vd.get("verdict","Unverifiable") if vd else "Unverifiable"
+                        explanation = vd.get("explanation","No explanation.") if vd else "Could not parse response."
 
-                    counts[verdict] = counts.get(verdict, 0) + 1
+                    counts[verdict] = counts.get(verdict,0) + 1
                     card_class, badge_class, badge_label = verdict_html(verdict)
 
-                    purpose_html = f"""
+                    purpose_block = f"""
 <div class="fl-rc-label">Why this matters</div>
-<div class="fl-rc-find" style="margin-bottom:8px">{purpose if purpose else "This claim is a key assertion in the text."}</div>
+<div class="fl-rc-find" style="margin-bottom:8px">{purpose}</div>
 <div class="fl-rc-sep"></div>
 """ if purpose else ""
 
-                    result_cards_html.append(f"""
+                    cards.append(f"""
 <div class="fl-rc {card_class}">
   <div class="fl-rc-top">
     <span class="fl-rc-num">Claim {i+1}</span>
@@ -657,38 +519,32 @@ verdict must be exactly one of: "Verified", "Inaccurate", "False", "Unverifiable
   </div>
   <div class="fl-rc-claim">"{claim}"</div>
   <div class="fl-rc-sep"></div>
-  {purpose_html}
+  {purpose_block}
   <div class="fl-rc-label">Verification finding</div>
   <div class="fl-rc-find">{explanation}</div>
 </div>
 """)
                 except Exception as e:
-                    result_cards_html.append(f"""
+                    cards.append(f"""
 <div class="fl-rc fl-rc-u">
-  <div class="fl-rc-top">
-    <span class="fl-rc-num">Claim {i+1}</span>
-    <span class="fl-bu">Error</span>
-  </div>
+  <div class="fl-rc-top"><span class="fl-rc-num">Claim {i+1}</span><span class="fl-bu">Error</span></div>
   <div class="fl-rc-claim">"{claim}"</div>
   <div class="fl-rc-find">Could not verify: {str(e)}</div>
 </div>
 """)
 
-        # Step 4 — Show results
         dot_map = {"Verified":"#22C55E","Inaccurate":"#F59E0B","False":"#EF4444","Unverifiable":"#4A5A80"}
-        pills_html = "".join([
+        pills = "".join([
             f'<div class="fl-pill"><span class="fl-dot" style="background:{dot_map[k]}"></span>{counts[k]} {k}</div>'
-            for k in ["Verified","Inaccurate","False","Unverifiable"] if counts[k] > 0
+            for k in ["Verified","Inaccurate","False","Unverifiable"] if counts[k]>0
         ])
 
         st.markdown(f"""
-<div class="fl-section-alt" id="results" style="padding-top:20px">
-  <div class="fl-slabel" style="margin-top:20px">Results</div>
+<div class="fl-section-alt" style="padding-top:20px" id="results">
+  <div class="fl-slabel">Results</div>
   <div class="fl-stitle">Verification complete</div>
-  <div class="fl-sum-pills">{pills_html}</div>
-  <div class="fl-results-wrap">
-    {"".join(result_cards_html)}
-  </div>
+  <div class="fl-sum-pills">{pills}</div>
+  <div class="fl-results-wrap">{"".join(cards)}</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -712,7 +568,7 @@ st.markdown("""
       <div class="fl-step-icon">🧠</div>
       <div class="fl-step-n">2</div>
       <div class="fl-step-t">AI extracts</div>
-      <div class="fl-step-d">Groq's LLM reads the text and pulls out every factual claim it finds.</div>
+      <div class="fl-step-d">Groq's LLM reads the text and pulls out every verifiable claim it finds.</div>
     </div>
     <div class="fl-step">
       <div class="fl-step-icon">🌐</div>
@@ -740,36 +596,12 @@ st.markdown("""
   <div class="fl-stitle fl-stitle-dark">Built different</div>
   <div class="fl-ssub fl-ssub-dark">Not just search — a full AI verification pipeline</div>
   <div class="fl-feat-grid">
-    <div class="fl-fc">
-      <div class="fl-fc-icon">⚡</div>
-      <div class="fl-fc-t">Zero friction</div>
-      <div class="fl-fc-d">No login, no API keys, no setup. Open the app and start verifying in one click.</div>
-    </div>
-    <div class="fl-fc">
-      <div class="fl-fc-icon">🌐</div>
-      <div class="fl-fc-t">Live web sources</div>
-      <div class="fl-fc-d">Claims are verified against real-time results, not a static knowledge base.</div>
-    </div>
-    <div class="fl-fc">
-      <div class="fl-fc-icon">🏷️</div>
-      <div class="fl-fc-t">Auto-categorized</div>
-      <div class="fl-fc-d">Each claim gets a topic tag — Climate, Health, Politics, AI & Tech and more.</div>
-    </div>
-    <div class="fl-fc">
-      <div class="fl-fc-icon">📄</div>
-      <div class="fl-fc-t">Three input modes</div>
-      <div class="fl-fc-d">Paste text, drop a URL, or upload a full PDF — all handled in one place.</div>
-    </div>
-    <div class="fl-fc">
-      <div class="fl-fc-icon">💬</div>
-      <div class="fl-fc-t">Explained verdicts</div>
-      <div class="fl-fc-d">Every result includes a clear explanation — not just a label, but the reasoning.</div>
-    </div>
-    <div class="fl-fc">
-      <div class="fl-fc-icon">🔒</div>
-      <div class="fl-fc-t">Privacy first</div>
-      <div class="fl-fc-d">Your text is never stored or logged. Each session is completely independent.</div>
-    </div>
+    <div class="fl-fc"><div class="fl-fc-icon">⚡</div><div class="fl-fc-t">Zero friction</div><div class="fl-fc-d">No login, no API keys, no setup. Open the app and start verifying in one click.</div></div>
+    <div class="fl-fc"><div class="fl-fc-icon">🌐</div><div class="fl-fc-t">Live web sources</div><div class="fl-fc-d">Claims are verified against real-time results, not a static knowledge base.</div></div>
+    <div class="fl-fc"><div class="fl-fc-icon">🏷️</div><div class="fl-fc-t">Auto-categorized</div><div class="fl-fc-d">Each claim gets a topic tag — Climate, Health, Politics, AI & Tech and more.</div></div>
+    <div class="fl-fc"><div class="fl-fc-icon">📄</div><div class="fl-fc-t">Three input modes</div><div class="fl-fc-d">Paste text, drop a URL, or upload a full PDF — all handled in one place.</div></div>
+    <div class="fl-fc"><div class="fl-fc-icon">💬</div><div class="fl-fc-t">Explained verdicts</div><div class="fl-fc-d">Every result includes a clear explanation — not just a label, but the reasoning behind it.</div></div>
+    <div class="fl-fc"><div class="fl-fc-icon">🔒</div><div class="fl-fc-t">Privacy first</div><div class="fl-fc-d">Your text is never stored or logged. Each session is completely independent.</div></div>
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -785,17 +617,15 @@ st.markdown("""
   <div class="fl-ssub">Built by a student, for everyone</div>
   <div class="fl-about-card">
     <div class="fl-cert-badge">
-      <div class="fl-cert-icon">🎓</div>
+      <span style="font-size:22px">🎓</span>
       <div class="fl-cert-text">
         <strong>Anthropic AI Fluency Certificate</strong>
         <span>Built as part of Anthropic's AI Fluency program</span>
       </div>
     </div>
-    <p class="fl-about-p">
-      FactLens started as a college project exploring how large language models can make
-      information more trustworthy. It grew into a real tool for anyone who wants to know
-      if what they're reading is actually true — powered by Groq LLM and Tavily live search.
-    </p>
+    <p class="fl-about-p">FactLens started as a college project exploring how large language models can make information
+    more trustworthy. It grew into a real tool for anyone who wants to know if what they're reading is actually true —
+    powered by Groq LLM and Tavily live search.</p>
     <div class="fl-about-btns">
       <a class="fl-abtn-p" href="#verify">▲ Verify something now</a>
       <a class="fl-abtn-s" href="https://github.com/vedikakashyap/Fact_Lence" target="_blank">⌥ View on GitHub</a>
