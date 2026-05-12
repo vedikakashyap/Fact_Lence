@@ -19,16 +19,17 @@ html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
 #MainMenu, footer, header { visibility: hidden; }
 .stApp { background: #0B0F1A; color: #E8EDFB; }
 
-/* Remove ALL Streamlit container padding */
+/* ── Remove ALL Streamlit padding/gaps ── */
 .block-container { padding: 0 !important; max-width: 100% !important; }
 [data-testid="stAppViewBlockContainer"] { padding: 0 !important; }
 section[data-testid="stMain"] > div:first-child { padding-top: 0 !important; }
 [data-testid="stVerticalBlock"] { gap: 0 !important; }
 [data-testid="stVerticalBlockBorderWrapper"] { gap: 0 !important; }
-
-/* Remove column padding */
 [data-testid="column"] { padding: 0 !important; }
 [data-testid="stHorizontalBlock"] { gap: 0 !important; padding: 0 !important; }
+
+/* Also kill any margin/padding on the element wrapping the columns */
+[data-testid="stVerticalBlock"] > [data-testid="stVerticalBlockBorderWrapper"] { padding: 0 !important; margin: 0 !important; }
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 5px; }
@@ -57,8 +58,10 @@ html { scroll-behavior: smooth; }
 
 /* ── HERO ── */
 .fl-hero {
-  background:#0B0F1A; text-align:center;
-  padding: 72px 24px 40px; position:relative; overflow:hidden;
+  background: #0B0F1A;
+  text-align: center;
+  padding: 72px 24px 32px;
+  position: relative; overflow: hidden;
 }
 .fl-hero-glow {
   position:absolute; top:-80px; left:50%; transform:translateX(-50%);
@@ -79,20 +82,23 @@ html { scroll-behavior: smooth; }
 .fl-hero h1 em { font-style:normal; color:#7B8FD4; }
 .fl-hero-sub {
   font-size:16px; color:rgba(255,255,255,0.38);
-  max-width:460px; margin:0 auto 0; line-height:1.75; text-align:center;
+  max-width:460px; margin:0 auto 0; line-height:1.75;
 }
 
-/* ── INPUT ZONE ── */
-.fl-input-zone {
-  background:#0B0F1A; padding: 28px 0 20px;
-  display:flex; justify-content:center;
+/* ── INPUT CARD WRAPPER (pure HTML shell, sits directly below hero in same bg) ── */
+.fl-input-shell {
+  background: #0B0F1A;
+  padding: 24px 0 0 0;
+  display: flex;
+  justify-content: center;
 }
+
+/* The actual card — applied as a CSS class to the column's inner content */
 .fl-input-card {
-  width:100%; max-width:600px;
-  background:rgba(255,255,255,0.045);
-  border:1px solid rgba(255,255,255,0.11);
-  border-radius:18px; padding:20px 22px;
-  margin: 0 auto;
+  background: rgba(255,255,255,0.045);
+  border: 1px solid rgba(255,255,255,0.11);
+  border-radius: 18px;
+  padding: 20px 22px;
 }
 .fl-input-hint {
   font-size:11px; color:rgba(255,255,255,0.22);
@@ -100,7 +106,10 @@ html { scroll-behavior: smooth; }
 }
 
 /* ── STATS ── */
-.fl-stats-zone { background:#0B0F1A; padding:20px 0 60px; display:flex; justify-content:center; }
+.fl-stats-zone {
+  background:#0B0F1A; padding:20px 0 60px;
+  display:flex; justify-content:center;
+}
 .fl-stats-row {
   display:flex; border:1px solid rgba(255,255,255,0.08);
   border-radius:14px; overflow:hidden;
@@ -147,7 +156,6 @@ html { scroll-behavior: smooth; }
   width:100% !important; margin-top:10px !important;
 }
 .stButton > button:hover { background:#3A52A8 !important; }
-.stSuccess { border-radius:10px !important; }
 .stSpinner > div { border-top-color:#7B8FD4 !important; }
 
 /* ── DIVIDER ── */
@@ -297,7 +305,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# HERO TEXT
+# HERO — text only, no bottom padding so input card sits flush
 # ═══════════════════════════════════════════════════════════════════════════════
 st.markdown("""
 <div class="fl-hero" id="verify">
@@ -310,9 +318,17 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# INPUT CARD — centred using columns, card styling applied to middle col content
+# INPUT CARD
+# Strategy: use st.columns for centering, then apply .fl-input-card CSS
+# to the middle column's contents via a wrapping div.
+# The key fix: background color on the columns container matches hero bg,
+# so there's no visual gap — just one seamless dark section.
 # ═══════════════════════════════════════════════════════════════════════════════
-_, mid, _ = st.columns([0.15, 0.7, 0.15])
+
+# Spacer div that opens the card shell (same bg as hero, no extra padding)
+st.markdown('<div style="background:#0B0F1A; padding: 24px 0 0 0;">', unsafe_allow_html=True)
+
+_, mid, _ = st.columns([1, 2, 1])
 
 with mid:
     st.markdown('<div class="fl-input-card">', unsafe_allow_html=True)
@@ -323,7 +339,7 @@ with mid:
         label_visibility="collapsed",
     )
 
-    verify   = False
+    verify     = False
     input_text = ""
 
     if mode == "📝  Paste text":
@@ -368,6 +384,8 @@ with mid:
     st.markdown('<p class="fl-input-hint">🔒 Groq LLM + Tavily live web search &nbsp;·&nbsp; Your text is never stored</p>', unsafe_allow_html=True)
     verify = st.button("🔬  Verify claims", use_container_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
+
+st.markdown('</div>', unsafe_allow_html=True)  # close the background shell
 
 # ── Stats ─────────────────────────────────────────────────────────────────────
 st.markdown("""
