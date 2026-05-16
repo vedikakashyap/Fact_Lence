@@ -2,190 +2,173 @@ import streamlit as st
 import pdfplumber
 import json
 import re
+import os
 from groq import Groq
 from tavily import TavilyClient
 
-# --- Page Config ---
-st.set_page_config(page_title="FactLens AI", page_icon="🔬", layout="wide")
+# ── Page config ──────────────────────────────────────────────────────────────
+st.set_page_config(
+    page_title="FactLens – AI Fact Checker",
+    page_icon="🔬",
+    layout="centered",
+    initial_sidebar_state="collapsed",
+)
 
-# --- Custom CSS ---
+# ── Load API keys from environment (set these in Render's dashboard) ─────────
+GROQ_API_KEY   = os.environ.get("GROQ_API_KEY", "")
+TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "")
+
+# ── CSS ───────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap');
 
-html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
-#MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
-.stApp { background: #0a0f1e; color: #e8eaf0; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, [class*="css"] { font-family: 'DM Sans', sans-serif !important; }
+#MainMenu, footer, header, [data-testid="stToolbar"],
+[data-testid="collapsedControl"], section[data-testid="stSidebar"] { display: none !important; }
 
-section[data-testid="stSidebar"] { background: #0d1428 !important; border-right: 1px solid #1e2a45; }
-section[data-testid="stSidebar"] * { color: #c8cfe8 !important; }
-section[data-testid="stSidebar"] input { background: #111c35 !important; border: 1px solid #1e3a6e !important; color: #e8eaf0 !important; border-radius: 8px !important; }
-
-/* Hero */
-.hero { text-align: center; padding: 3rem 0 2rem 0; }
-.hero-badge { display: inline-block; background: linear-gradient(135deg, #1e3a6e, #0d2348); border: 1px solid #2a4d8f; color: #7eb8ff; font-size: 0.7rem; font-weight: 500; letter-spacing: 0.15em; text-transform: uppercase; padding: 6px 18px; border-radius: 100px; margin-bottom: 1.2rem; }
-.hero h1 { font-family: 'Syne', sans-serif !important; font-size: 3.2rem !important; font-weight: 800 !important; color: #ffffff !important; letter-spacing: -0.02em; margin: 0 0 0.6rem 0 !important; line-height: 1.1 !important; }
-.hero h1 span { background: linear-gradient(135deg, #4f8ef7, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-.hero p { color: #7a8ab0 !important; font-size: 1.05rem !important; font-weight: 300; max-width: 520px; margin: 0 auto !important; line-height: 1.6; }
-
-/* Stats */
-.stat-row { display: flex; gap: 1rem; margin: 1.5rem 0; }
-.stat-card { flex: 1; background: #0d1428; border: 1px solid #1e2a45; border-radius: 12px; padding: 1rem 1.2rem; text-align: center; }
-.stat-num { font-family: 'Syne', sans-serif; font-size: 2rem; font-weight: 800; color: #4f8ef7; line-height: 1; }
-.stat-label { font-size: 0.72rem; color: #5a6a90; text-transform: uppercase; letter-spacing: 0.1em; margin-top: 4px; }
-
-/* Section header */
-.section-header { font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 700; color: #c8d4f0; text-transform: uppercase; letter-spacing: 0.08em; margin: 2rem 0 1rem 0; padding-bottom: 0.5rem; border-bottom: 1px solid #1e2a45; }
-
-/* Claim cards */
-.claim-card { background: #0d1428; border: 1px solid #1e2a45; border-radius: 16px; padding: 1.4rem 1.6rem; margin-bottom: 1rem; transition: border-color 0.2s; }
-.claim-card:hover { border-color: #2a4060; }
-.claim-card-verified   { border-left: 4px solid #22c55e; }
-.claim-card-inaccurate { border-left: 4px solid #f59e0b; }
-.claim-card-false      { border-left: 4px solid #ef4444; }
-.claim-card-unverifiable { border-left: 4px solid #6b7280; }
-
-.claim-top-row { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 0.8rem; flex-wrap: wrap; }
-.claim-number { background: #111c38; border: 1px solid #1e2a45; color: #5a7ab0; font-family: 'Syne', sans-serif; font-size: 0.7rem; font-weight: 700; padding: 2px 10px; border-radius: 100px; letter-spacing: 0.05em; }
-.claim-category { font-size: 0.68rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.12em; color: #7a8ab0; padding: 2px 10px; background: #111c38; border-radius: 100px; border: 1px solid #1e2a45; }
-
-.verdict-badge-verified     { background: #052e16; color: #4ade80; border: 1px solid #166534; padding: 3px 12px; border-radius: 100px; font-size: 0.72rem; font-weight: 600; }
-.verdict-badge-inaccurate   { background: #451a03; color: #fbbf24; border: 1px solid #92400e; padding: 3px 12px; border-radius: 100px; font-size: 0.72rem; font-weight: 600; }
-.verdict-badge-false        { background: #2d0707; color: #f87171; border: 1px solid #7f1d1d; padding: 3px 12px; border-radius: 100px; font-size: 0.72rem; font-weight: 600; }
-.verdict-badge-unverifiable { background: #111827; color: #9ca3af; border: 1px solid #374151; padding: 3px 12px; border-radius: 100px; font-size: 0.72rem; font-weight: 600; }
-
-.claim-text { font-size: 0.98rem; color: #c8d4f0; line-height: 1.6; font-weight: 400; margin-bottom: 0.8rem; }
-.claim-divider { border: none; border-top: 1px solid #1a2540; margin: 0.8rem 0; }
-.claim-purpose-label { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: #4f8ef7; margin-bottom: 0.3rem; }
-.claim-purpose-text { font-size: 0.85rem; color: #8a9ab8; line-height: 1.55; font-style: italic; }
-.claim-explanation-label { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: #a78bfa; margin: 0.7rem 0 0.3rem 0; }
-.claim-explanation-text { font-size: 0.88rem; color: #c0cce8; line-height: 1.55; }
-
-/* Button */
-.stButton > button {
-    background: linear-gradient(135deg, #1a4fbd, #7c3aed) !important;
-    color: white !important; border: none !important; border-radius: 10px !important;
-    padding: 0.6rem 2rem !important; font-family: 'Syne', sans-serif !important;
-    font-weight: 600 !important; font-size: 0.95rem !important; width: 100% !important;
+.stApp { background: #080c14 !important; }
+.block-container {
+    max-width: 780px !important;
+    padding: 0 1.5rem 4rem !important;
+    margin: 0 auto !important;
 }
 
-/* Summary pills */
-.summary-bar { display: flex; gap: 1rem; flex-wrap: wrap; margin: 0.5rem 0 1.5rem 0; }
-.summary-pill { display: flex; align-items: center; gap: 6px; background: #0d1428; border: 1px solid #1e2a45; border-radius: 100px; padding: 5px 14px; font-size: 0.78rem; color: #8a9ab8; font-weight: 500; }
-.dot-green  { width:8px; height:8px; background:#22c55e; border-radius:50%; display:inline-block; }
-.dot-yellow { width:8px; height:8px; background:#f59e0b; border-radius:50%; display:inline-block; }
-.dot-red    { width:8px; height:8px; background:#ef4444; border-radius:50%; display:inline-block; }
-.dot-gray   { width:8px; height:8px; background:#6b7280; border-radius:50%; display:inline-block; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #0d1220; }
+::-webkit-scrollbar-thumb { background: #1e2d50; border-radius: 3px; }
 
-/* File uploader */
-[data-testid="stFileUploader"] {
-    background: #0d1428 !important;
-    border: 2px dashed #1e3a6e !important;
-    border-radius: 14px !important;
-    padding: 1.2rem !important;
+.nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.6rem 0 1.4rem;
+    border-bottom: 1px solid #131d30;
+    margin-bottom: 3.5rem;
 }
-[data-testid="stFileUploader"] label { color: #7a8ab0 !important; }
+.nav-logo { font-family: 'Instrument Serif', serif; font-size: 1.45rem; color: #f0f4ff; letter-spacing: -0.01em; }
+.nav-logo em { color: #5b8def; font-style: normal; }
+.nav-tag { font-size: 0.68rem; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #3a5080; background: #0d1525; border: 1px solid #1a2840; border-radius: 100px; padding: 4px 12px; }
 
-/* Info box */
-.stInfo { background: #0d1a30 !important; border: 1px solid #1e3a6e !important; border-radius: 10px !important; color: #7eb8ff !important; }
+.hero { text-align: center; padding: 0 0 3rem; }
+.hero-eyebrow { display: inline-flex; align-items: center; gap: 7px; font-size: 0.72rem; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; color: #5b8def; margin-bottom: 1.4rem; }
+.hero-eyebrow-dot { width: 6px; height: 6px; background: #5b8def; border-radius: 50%; display: inline-block; animation: pulse 2s infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.7); } }
+.hero h1 { font-family: 'Instrument Serif', serif; font-size: clamp(2.4rem, 5vw, 3.5rem); font-weight: 400; color: #eef1fb; line-height: 1.08; letter-spacing: -0.02em; margin-bottom: 1rem; }
+.hero h1 em { font-style: italic; background: linear-gradient(135deg, #5b8def 0%, #9b6dff 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.hero-sub { font-size: 1rem; font-weight: 300; color: #4a6090; line-height: 1.7; max-width: 480px; margin: 0 auto 2.4rem; }
 
-/* Anthropic badge */
-.anthropic-badge-wrapper {
-    display: flex;
-    justify-content: center;
-    margin: 3rem 0 2rem 0;
-}
-.anthropic-badge {
-    background: linear-gradient(135deg, #1a1f35, #0d1428);
-    border: 1px solid #2a3a5e;
-    border-radius: 20px;
-    padding: 1.5rem 2.5rem;
-    text-align: center;
-    max-width: 520px;
-    width: 100%;
-    position: relative;
-    overflow: hidden;
-}
-.anthropic-badge::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0; height: 2px;
-    background: linear-gradient(90deg, #4f8ef7, #a78bfa, #f59e0b);
-}
-.anthropic-badge-logo {
-    font-family: 'Syne', sans-serif;
-    font-size: 1.05rem;
-    font-weight: 800;
-    color: #e8eaf0;
-    letter-spacing: 0.04em;
-    margin-bottom: 0.3rem;
-}
-.anthropic-badge-logo span {
-    background: linear-gradient(135deg, #4f8ef7, #a78bfa);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-}
-.anthropic-badge-title {
-    font-size: 0.72rem;
-    color: #5a7ab0;
-    text-transform: uppercase;
-    letter-spacing: 0.14em;
-    margin-bottom: 0.6rem;
-}
-.anthropic-badge-name {
-    font-family: 'Syne', sans-serif;
-    font-size: 1.3rem;
-    font-weight: 700;
-    color: #ffffff;
-    margin-bottom: 0.3rem;
-}
-.anthropic-badge-course {
-    font-size: 0.82rem;
-    color: #7eb8ff;
-    font-weight: 500;
-    margin-bottom: 0.8rem;
-    line-height: 1.4;
-}
-.anthropic-badge-seal {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: linear-gradient(135deg, #052e16, #0a1f10);
-    border: 1px solid #166534;
-    border-radius: 100px;
-    padding: 5px 16px;
-    font-size: 0.72rem;
-    color: #4ade80;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
+.features { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-bottom: 3rem; }
+.feature-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; font-weight: 500; color: #5a7ab0; background: #0c1628; border: 1px solid #182540; border-radius: 100px; padding: 6px 14px; }
+.fp-dot { width: 5px; height: 5px; border-radius: 50%; display: inline-block; }
+.fp-blue   { background: #5b8def; }
+.fp-purple { background: #9b6dff; }
+.fp-teal   { background: #2ec4a7; }
 
-/* Footer */
-.site-footer {
-    text-align: center;
-    padding: 2rem 0 1rem 0;
-    border-top: 1px solid #1a2540;
-    margin-top: 3rem;
-    color: #3a4a70;
-    font-size: 0.78rem;
-}
-.site-footer a { color: #4f8ef7; text-decoration: none; }
+[data-testid="stFileUploader"] { background: #0b1425 !important; border: 1.5px dashed #1c3058 !important; border-radius: 18px !important; padding: 2.5rem 2rem !important; text-align: center; }
+[data-testid="stFileUploader"] label, [data-testid="stFileUploader"] p, [data-testid="stFileUploader"] span, [data-testid="stFileUploader"] small { color: #3a5580 !important; font-size: 0.88rem !important; }
+[data-testid="stFileUploader"] button { background: #0f1e38 !important; border: 1px solid #1e3a6e !important; border-radius: 10px !important; color: #7eb3ff !important; font-size: 0.82rem !important; font-family: 'DM Sans', sans-serif !important; padding: 0.4rem 1.1rem !important; }
+
+[data-testid="stSuccess"] { background: #041a0d !important; border: 1px solid #0d4020 !important; border-radius: 12px !important; color: #3dba79 !important; }
+[data-testid="stInfo"] { background: #08111e !important; border: 1px solid #162540 !important; border-radius: 12px !important; color: #4a7ab0 !important; font-size: 0.88rem !important; }
+
+.stButton > button { background: linear-gradient(135deg, #1a50c0 0%, #6b3ec8 100%) !important; color: #fff !important; border: none !important; border-radius: 14px !important; padding: 0.8rem 0 !important; font-family: 'DM Sans', sans-serif !important; font-weight: 600 !important; font-size: 0.95rem !important; width: 100% !important; letter-spacing: 0.02em; transition: opacity 0.2s !important; margin-top: 1rem !important; }
+.stButton > button:hover { opacity: 0.88 !important; }
+
+[data-testid="stSpinner"] p { color: #4a6090 !important; font-size: 0.88rem !important; }
+
+.stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 2.5rem 0 2rem; }
+.stat-card { background: #0b1525; border: 1px solid #131e35; border-radius: 14px; padding: 1.2rem 1rem; text-align: center; }
+.stat-num { font-family: 'Instrument Serif', serif; font-size: 2.2rem; color: #5b8def; line-height: 1; margin-bottom: 6px; }
+.stat-lbl { font-size: 0.68rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.12em; color: #2e4060; }
+
+.sec-hdr { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; color: #2e4565; border-bottom: 1px solid #111c30; padding-bottom: 0.7rem; margin: 2.5rem 0 1.4rem; }
+
+.cc { background: #0b1525; border: 1px solid #131e35; border-radius: 18px; padding: 1.5rem 1.8rem; margin-bottom: 1rem; }
+.cc-verified     { border-left: 3px solid #22c55e; }
+.cc-inaccurate   { border-left: 3px solid #f59e0b; }
+.cc-false        { border-left: 3px solid #ef4444; }
+.cc-unverifiable { border-left: 3px solid #3a4a60; }
+
+.cc-toprow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 1rem; }
+.cc-num { font-size: 0.65rem; font-weight: 600; letter-spacing: 0.1em; color: #2e4060; background: #0d1a2e; border: 1px solid #162035; border-radius: 100px; padding: 2px 10px; }
+.cc-cat { font-size: 0.65rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em; color: #3d5a80; background: #0d1a2e; border: 1px solid #162035; border-radius: 100px; padding: 2px 10px; }
+.vb-verified     { background:#031a0a; color:#4ade80; border:1px solid #0e4a22; padding:3px 12px; border-radius:100px; font-size:0.68rem; font-weight:600; }
+.vb-inaccurate   { background:#1e0e00; color:#fbbf24; border:1px solid #5a3000; padding:3px 12px; border-radius:100px; font-size:0.68rem; font-weight:600; }
+.vb-false        { background:#1a0505; color:#f87171; border:1px solid #5a1010; padding:3px 12px; border-radius:100px; font-size:0.68rem; font-weight:600; }
+.vb-unverifiable { background:#0d1020; color:#60728a; border:1px solid #1a2540; padding:3px 12px; border-radius:100px; font-size:0.68rem; font-weight:600; }
+
+.cc-claim { font-family: 'Instrument Serif', serif; font-size: 1.08rem; color: #c8d4ee; line-height: 1.55; margin-bottom: 1rem; }
+.cc-div { border: none; border-top: 1px solid #101828; margin: 0.8rem 0; }
+.cc-plabel { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: #2d5090; margin-bottom: 0.35rem; }
+.cc-ptext  { font-size: 0.85rem; color: #4a6890; line-height: 1.6; font-style: italic; }
+.cc-elabel { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: #4a3a80; margin: 0.8rem 0 0.35rem; }
+.cc-etext  { font-size: 0.88rem; color: #8090b8; line-height: 1.6; }
+
+.sum-bar { display: flex; gap: 10px; flex-wrap: wrap; margin: 0.8rem 0 2rem; }
+.sum-pill { display: flex; align-items: center; gap: 7px; background: #0b1525; border: 1px solid #131e35; border-radius: 100px; padding: 6px 14px; font-size: 0.78rem; font-weight: 500; color: #3d5580; }
+.d-g { width:7px;height:7px;border-radius:50%;background:#22c55e;display:inline-block; }
+.d-y { width:7px;height:7px;border-radius:50%;background:#f59e0b;display:inline-block; }
+.d-r { width:7px;height:7px;border-radius:50%;background:#ef4444;display:inline-block; }
+.d-s { width:7px;height:7px;border-radius:50%;background:#3a4a60;display:inline-block; }
+
+.page-divider { border: none; border-top: 1px solid #0e1a28; margin: 3rem 0; }
+
+.badge-wrap { display: flex; justify-content: center; margin: 3rem 0 2rem; }
+.badge { background: #090e1c; border: 1px solid #182035; border-radius: 22px; padding: 2rem 2.5rem; text-align: center; max-width: 420px; width: 100%; position: relative; overflow: hidden; }
+.badge-stripe { position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, #5b8def, #9b6dff, #2ec4a7); }
+.badge-issuer { font-size: 0.65rem; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: #2e4060; margin-bottom: 0.6rem; }
+.badge-title { font-family: 'Instrument Serif', serif; font-size: 1.35rem; color: #d0daf5; margin-bottom: 0.25rem; line-height: 1.3; }
+.badge-sub { font-size: 0.78rem; color: #3d5580; margin-bottom: 1.2rem; }
+.badge-seal { display: inline-flex; align-items: center; gap: 6px; background: #031a0a; border: 1px solid #0e4a22; border-radius: 100px; padding: 5px 16px; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #4ade80; }
+
+.site-footer { text-align: center; padding: 1.5rem 0 0; border-top: 1px solid #0e1828; font-size: 0.76rem; color: #243040; }
+.site-footer a { color: #2e4a70; text-decoration: none; }
+.site-footer a:hover { color: #4a70a0; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- Hero ---
+# ── Nav ───────────────────────────────────────────────────────────────────────
 st.markdown("""
-<div class="hero">
-    <div class="hero-badge">🔬 AI-Powered Verification</div>
-    <h1>Fact<span>Lens</span></h1>
-    <p>Upload any PDF — we extract every claim, explain its purpose, and verify it against live web sources.</p>
+<div class="nav">
+    <div class="nav-logo">Fact<em>Lens</em></div>
+    <div class="nav-tag">AI Fact Checker</div>
 </div>
 """, unsafe_allow_html=True)
 
+# ── Hero ──────────────────────────────────────────────────────────────────────
+st.markdown("""
+<div class="hero">
+    <div class="hero-eyebrow">
+        <span class="hero-eyebrow-dot"></span>
+        Powered by Groq &amp; Tavily
+    </div>
+    <h1>Every claim,<br><em>verified.</em></h1>
+    <p class="hero-sub">
+        Upload any PDF and FactLens extracts factual claims,
+        explains why they matter, and cross-checks each one
+        against live web sources in seconds.
+    </p>
+    <div class="features">
+        <span class="feature-pill"><span class="fp-dot fp-blue"></span> Claim Extraction</span>
+        <span class="feature-pill"><span class="fp-dot fp-purple"></span> Live Web Search</span>
+        <span class="feature-pill"><span class="fp-dot fp-teal"></span> Instant Verdict</span>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
-# --- Helpers ---
+# ── Guard ─────────────────────────────────────────────────────────────────────
+if not GROQ_API_KEY or not TAVILY_API_KEY:
+    st.error("API keys are not configured. Set `GROQ_API_KEY` and `TAVILY_API_KEY` as environment variables on Render.")
+    st.stop()
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+def safe_html(t):
+    return (str(t or "")
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace('"', "&quot;"))
+
 def extract_json_array(text):
     text = re.sub(r"```json|```", "", text).strip()
     text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', text)
@@ -193,15 +176,13 @@ def extract_json_array(text):
         return json.loads(text, strict=False)
     except Exception:
         pass
-    match = re.search(r'\[.*?\]', text, re.DOTALL)
-    if match:
+    m = re.search(r'\[.*?\]', text, re.DOTALL)
+    if m:
         try:
-            return json.loads(match.group(), strict=False)
+            return json.loads(m.group(), strict=False)
         except Exception:
             pass
-    items = re.findall(r'"([^"]{10,})"', text)
-    return items if items else []
-
+    return re.findall(r'"([^"]{10,})"', text) or []
 
 def extract_json_object(text):
     text = re.sub(r"```json|```", "", text).strip()
@@ -210,295 +191,220 @@ def extract_json_object(text):
         return json.loads(text, strict=False)
     except Exception:
         pass
-    match = re.search(r'\{.*?\}', text, re.DOTALL)
-    if match:
+    m = re.search(r'\{.*?\}', text, re.DOTALL)
+    if m:
         try:
-            return json.loads(match.group(), strict=False)
+            return json.loads(m.group(), strict=False)
         except Exception:
             pass
     return None
 
-
 def get_category(claim_text):
     cl = claim_text.lower()
-    if any(w in cl for w in ["diagnos", "detect", "disease", "cancer", "diabetes", "heart"]):
-        return "Diagnostics"
-    if any(w in cl for w in ["drug", "treatment", "therap", "medicine"]):
-        return "Treatment"
-    if any(w in cl for w in ["data", "patient record", "dataset", "privacy", "security"]):
-        return "Data & Privacy"
-    if any(w in cl for w in ["bias", "ethic", "fairness", "disparit"]):
-        return "Ethics & Bias"
-    if any(w in cl for w in ["chatbot", "virtual", "assistant", "workflow", "admin", "automat"]):
-        return "AI Systems"
-    if any(w in cl for w in ["fund", "financ", "cost", "resource"]):
-        return "Funding"
-    if any(w in cl for w in ["legal", "regulat", "framework", "law"]):
-        return "Legal"
+    for kws, cat in [
+        (["diagnos","detect","disease","cancer","diabetes","heart"], "Diagnostics"),
+        (["drug","treatment","therap","medicine"], "Treatment"),
+        (["data","patient record","dataset","privacy","security"], "Data & Privacy"),
+        (["bias","ethic","fairness","disparit"], "Ethics & Bias"),
+        (["chatbot","virtual","assistant","workflow","admin","automat"], "AI Systems"),
+        (["fund","financ","cost","resource"], "Funding"),
+        (["legal","regulat","framework","law"], "Legal"),
+    ]:
+        if any(w in cl for w in kws):
+            return cat
     return "General AI"
 
+# ── Upload ────────────────────────────────────────────────────────────────────
+uploaded_file = st.file_uploader(
+    "Drop your PDF here, or click to browse",
+    type="pdf",
+    label_visibility="collapsed",
+)
 
-def safe_html(text):
-    """Escape curly braces and HTML special chars so they don't break st.markdown f-strings."""
-    if not text:
-        return ""
-    text = str(text)
-    text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    # Don't escape quotes here — they render fine inside HTML attributes we control
-    return text
-
-
-# --- Sidebar ---
-with st.sidebar:
-    st.markdown("### 🔑 API Keys")
-    groq_key = st.text_input("Groq API Key", type="password", placeholder="gsk_...")
-    tavily_key = st.text_input("Tavily API Key", type="password", placeholder="tvly-...")
-    st.markdown("---")
-    st.markdown("##### How it works")
-    st.markdown("""
-1. **Extract** — LLM finds factual claims
-2. **Categorize** — Each claim gets a topic tag
-3. **Purpose** — Why this claim matters is explained
-4. **Search** — Tavily searches the live web
-5. **Verdict** — Verified / Inaccurate / False / Unverifiable
-""")
-    st.caption("Keys are never stored or logged.")
-
-
-# --- Upload ---
-uploaded_file = st.file_uploader("📄 Upload your PDF", type="pdf")
-
-if uploaded_file and groq_key and tavily_key:
+if uploaded_file:
     with pdfplumber.open(uploaded_file) as pdf:
-        text = ""
-        for page in pdf.pages:
-            text += page.extract_text() or ""
+        raw_text = "".join(page.extract_text() or "" for page in pdf.pages)
+    char_count = len(raw_text)
+    st.success(f"✓  **{uploaded_file.name}** loaded — {char_count:,} characters ready for analysis")
 
-    st.success(f"✅ **{uploaded_file.name}** uploaded — {len(text):,} characters extracted")
+    if st.button("🔬  Extract & Verify All Claims"):
 
-    if st.button("🔬 Extract & Verify All Claims"):
-
-        # ---- Step 1: Extract claims ----
-        with st.spinner("🤖 Analysing document and extracting claims..."):
-            client = Groq(api_key=groq_key)
-
-            prompt = f"""
-You are an expert fact-checking assistant. From the text below, extract between 3 and 8 specific, verifiable claims.
+        # 1. Extract
+        with st.spinner("Analysing document and extracting claims…"):
+            client = Groq(api_key=GROQ_API_KEY)
+            extract_prompt = f"""You are an expert fact-checking assistant. From the text below, extract between 3 and 8 specific, verifiable claims.
 
 For each claim also write:
-- "purpose": one sentence explaining WHY this claim matters or what it is trying to establish in the document (for a non-expert reader)
+- "purpose": one sentence explaining WHY this claim matters (for a non-expert reader)
 - "category": one of [Diagnostics, Treatment, Data & Privacy, Ethics & Bias, AI Systems, Funding, Legal, General AI]
 
-Return ONLY a valid JSON array. No markdown, no commentary.
+Return ONLY a valid JSON array, no markdown.
 
 Format:
 [
   {{
-    "claim": "The full factual claim as stated or implied in the text.",
+    "claim": "The full factual claim.",
     "purpose": "This claim establishes that...",
     "category": "Diagnostics"
   }}
 ]
 
-Rules:
-- Prefer concrete assertions; include qualitative ones if they are the main point
-- Each claim must be a full sentence
-
 Text:
-{text[:4000]}
-"""
+{raw_text[:4000]}"""
 
-            response = client.chat.completions.create(
+            resp = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0
+                messages=[{"role": "user", "content": extract_prompt}],
+                temperature=0,
             )
-            raw = response.choices[0].message.content.strip()
-            claims_data = extract_json_array(raw)
+            claims_data = extract_json_array(resp.choices[0].message.content.strip())
 
         # Normalise
         normalised = []
         for item in claims_data:
             if isinstance(item, dict):
                 normalised.append({
-                    "claim": item.get("claim", str(item)),
-                    "purpose": item.get("purpose", ""),
-                    "category": item.get("category", get_category(item.get("claim", "")))
+                    "claim":    item.get("claim", str(item)),
+                    "purpose":  item.get("purpose", ""),
+                    "category": item.get("category", get_category(item.get("claim", ""))),
                 })
             else:
-                normalised.append({
-                    "claim": str(item),
-                    "purpose": "",
-                    "category": get_category(str(item))
-                })
+                normalised.append({"claim": str(item), "purpose": "", "category": get_category(str(item))})
 
         if not normalised:
-            st.error("❌ Could not extract claims. The text may be too vague.")
+            st.error("Could not extract claims. The document may be too vague or image-only.")
             st.stop()
 
-        # Stats row
+        # Stats
         st.markdown(f"""
 <div class="stat-row">
     <div class="stat-card">
         <div class="stat-num">{len(normalised)}</div>
-        <div class="stat-label">Claims Found</div>
+        <div class="stat-lbl">Claims Found</div>
     </div>
     <div class="stat-card">
         <div class="stat-num">{len(set(c['category'] for c in normalised))}</div>
-        <div class="stat-label">Topics Covered</div>
+        <div class="stat-lbl">Topics</div>
     </div>
     <div class="stat-card">
-        <div class="stat-num">{len(text):,}</div>
-        <div class="stat-label">Characters Scanned</div>
+        <div class="stat-num">{char_count:,}</div>
+        <div class="stat-lbl">Chars Scanned</div>
     </div>
-</div>
-""", unsafe_allow_html=True)
+</div>""", unsafe_allow_html=True)
 
-        st.markdown('<div class="section-header">📋 Claim Verification Results</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sec-hdr">Claim Verification Results</div>', unsafe_allow_html=True)
 
-        # ---- Step 2: Verify each claim ----
-        tavily = TavilyClient(api_key=tavily_key)
+        # 2. Verify
+        tavily = TavilyClient(api_key=TAVILY_API_KEY)
         counts = {"Verified": 0, "Inaccurate": 0, "False": 0, "Unverifiable": 0}
+        icons  = {"Verified":"✓ Verified","Inaccurate":"⚠ Inaccurate","False":"✗ False","Unverifiable":"? Unverifiable"}
 
         for i, item in enumerate(normalised):
             claim    = item["claim"]
             purpose  = item["purpose"]
             category = item["category"]
+            verdict     = "Unverifiable"
+            explanation = "No web sources could be found to verify or contradict this claim."
 
-            with st.spinner(f"Verifying claim {i+1} of {len(normalised)}..."):
-                verdict     = "Unverifiable"
-                explanation = "No web sources could be found to verify or contradict this claim."
-
+            with st.spinner(f"Verifying claim {i+1} of {len(normalised)}…"):
                 try:
-                    # Tavily search
                     snippets = ""
                     try:
                         sr = tavily.search(query=claim, search_depth="basic", max_results=3)
-                        snippets = " ".join([r.get("content", "") for r in sr.get("results", [])])
+                        snippets = " ".join(r.get("content","") for r in sr.get("results",[]))
                     except Exception:
                         pass
-
                     if not snippets.strip():
                         try:
-                            short_q = " ".join(claim.split()[:8])
-                            sr = tavily.search(query=short_q, search_depth="basic", max_results=3)
-                            snippets = " ".join([r.get("content", "") for r in sr.get("results", [])])
+                            sr = tavily.search(query=" ".join(claim.split()[:8]), search_depth="basic", max_results=3)
+                            snippets = " ".join(r.get("content","") for r in sr.get("results",[]))
                         except Exception:
                             pass
-
                     if snippets.strip():
-                        vp = f"""
-You are a fact-checker. Based ONLY on the web results below, verify the claim.
+                        vp = f"""You are a fact-checker. Based ONLY on the web results below, verify the claim.
 
 Claim: "{claim}"
+Web Results: {snippets[:2000]}
 
-Web Results:
-{snippets[:2000]}
-
-Return ONLY a valid JSON object, no markdown:
-{{"verdict": "Verified", "explanation": "one clear sentence explaining your verdict"}}
+Return ONLY valid JSON, no markdown:
+{{"verdict": "Verified", "explanation": "one sentence"}}
 
 verdict must be exactly one of: "Verified", "Inaccurate", "False", "Unverifiable"
 """
                         vr = client.chat.completions.create(
                             model="llama-3.3-70b-versatile",
-                            messages=[{"role": "user", "content": vp}],
-                            temperature=0
+                            messages=[{"role":"user","content":vp}],
+                            temperature=0,
                         )
                         vd = extract_json_object(vr.choices[0].message.content.strip())
                         if vd:
-                            verdict     = vd.get("verdict", "Unverifiable")
-                            explanation = vd.get("explanation", "No explanation.")
-                        # Guard against unexpected verdicts
+                            verdict     = vd.get("verdict","Unverifiable")
+                            explanation = vd.get("explanation","No explanation provided.")
                         if verdict not in counts:
                             verdict = "Unverifiable"
-
                 except Exception as e:
                     verdict     = "Unverifiable"
-                    explanation = f"Verification error: {str(e)}"
+                    explanation = f"Verification could not be completed: {e}"
 
-                # Always increment count
-                counts[verdict] = counts.get(verdict, 0) + 1
+            counts[verdict] = counts.get(verdict, 0) + 1
 
-                # Build and render card — use safe_html to prevent f-string / HTML injection issues
-                badge_class = f"verdict-badge-{verdict.lower()}"
-                card_class  = f"claim-card-{verdict.lower()}"
-                icons = {
-                    "Verified":     "✅ Verified",
-                    "Inaccurate":   "⚠️ Inaccurate",
-                    "False":        "❌ False",
-                    "Unverifiable": "⬜ Unverifiable"
-                }
-                icon_label = icons.get(verdict, verdict)
+            sc  = safe_html(claim)
+            sp  = safe_html(purpose) if purpose else "This claim supports a key assertion in the document."
+            se  = safe_html(explanation)
+            sca = safe_html(category)
+            vl  = verdict.lower()
+            il  = icons.get(verdict, verdict)
 
-                safe_claim       = safe_html(claim)
-                safe_purpose     = safe_html(purpose) if purpose else "This claim supports a key assertion in the document."
-                safe_explanation = safe_html(explanation)
-                safe_category    = safe_html(category)
-
-                st.markdown(f"""
-<div class="claim-card {card_class}">
-    <div class="claim-top-row">
-        <span class="claim-number">CLAIM {i+1}</span>
-        <span class="claim-category">{safe_category}</span>
-        <span class="{badge_class}">{icon_label}</span>
+            st.markdown(f"""
+<div class="cc cc-{vl}">
+    <div class="cc-toprow">
+        <span class="cc-num">CLAIM {i+1}</span>
+        <span class="cc-cat">{sca}</span>
+        <span class="vb-{vl}">{il}</span>
     </div>
-    <div class="claim-text">&#8220;{safe_claim}&#8221;</div>
-    <hr class="claim-divider">
-    <div class="claim-purpose-label">📌 Why This Claim Matters</div>
-    <div class="claim-purpose-text">{safe_purpose}</div>
-    <div class="claim-explanation-label">🔎 Verification Finding</div>
-    <div class="claim-explanation-text">{safe_explanation}</div>
-</div>
-""", unsafe_allow_html=True)
+    <div class="cc-claim">&#8220;{sc}&#8221;</div>
+    <hr class="cc-div">
+    <div class="cc-plabel">Why this claim matters</div>
+    <div class="cc-ptext">{sp}</div>
+    <div class="cc-elabel">Verification finding</div>
+    <div class="cc-etext">{se}</div>
+</div>""", unsafe_allow_html=True)
 
-        # ---- Summary pills ----
-        dot = {
-            "Verified":     "dot-green",
-            "Inaccurate":   "dot-yellow",
-            "False":        "dot-red",
-            "Unverifiable": "dot-gray"
-        }
-        pills = "".join([
-            f'<div class="summary-pill"><span class="{dot[k]}"></span>{counts[k]} {k}</div>'
-            for k in ["Verified", "Inaccurate", "False", "Unverifiable"] if counts.get(k, 0) > 0
-        ])
-        st.markdown(
-            f'<div class="section-header">📊 Summary</div><div class="summary-bar">{pills}</div>',
-            unsafe_allow_html=True
+        # Summary
+        dot_map = {"Verified":"d-g","Inaccurate":"d-y","False":"d-r","Unverifiable":"d-s"}
+        pills = "".join(
+            f'<div class="sum-pill"><span class="{dot_map[k]}"></span>{counts[k]} {k}</div>'
+            for k in ["Verified","Inaccurate","False","Unverifiable"] if counts.get(k,0)>0
         )
+        st.markdown(f'<div class="sec-hdr">Summary</div><div class="sum-bar">{pills}</div>', unsafe_allow_html=True)
 
 else:
-    if not groq_key or not tavily_key:
-        st.info("👈 Enter your Groq and Tavily API keys in the sidebar to get started.")
-    if not uploaded_file:
-        st.info("📄 Upload a PDF above to begin fact-checking.")
+    st.info("Upload a PDF above to begin — no account or API key required.")
 
+# ── Divider ───────────────────────────────────────────────────────────────────
+st.markdown('<hr class="page-divider">', unsafe_allow_html=True)
 
-# --- Anthropic AI Fluency Certificate Badge ---
+# ── Anthropic Badge ───────────────────────────────────────────────────────────
 st.markdown("""
-<div class="anthropic-badge-wrapper">
-    <div class="anthropic-badge">
-        <div class="anthropic-badge-logo"><span>Anthropic</span></div>
-        <div class="anthropic-badge-title">Certificate of Completion</div>
-        <div class="anthropic-badge-name">Vedika Kashyap</div>
-        <div class="anthropic-badge-course">
-            AI Fluency Course<br>
-            <span style="color:#5a7ab0; font-size:0.78rem;">Issued by Anthropic · 2024</span>
-        </div>
-        <div class="anthropic-badge-seal">
-            ✦ &nbsp; Verified Completion
-        </div>
+<div class="badge-wrap">
+    <div class="badge">
+        <div class="badge-stripe"></div>
+        <div class="badge-issuer">Anthropic &nbsp;·&nbsp; Certificate of Completion</div>
+        <div class="badge-title">AI Fluency Course</div>
+        <div class="badge-sub">Awarded to <strong style="color:#8090c0">Vedika Kashyap</strong> &nbsp;·&nbsp; 2024</div>
+        <div class="badge-seal">&#10022; &nbsp; Verified Completion</div>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-# --- Footer ---
+# ── Footer ────────────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="site-footer">
-    Built with ❤️ using <a href="https://streamlit.io" target="_blank">Streamlit</a>,
-    <a href="https://groq.com" target="_blank">Groq</a> &amp;
-    <a href="https://tavily.com" target="_blank">Tavily</a> &nbsp;·&nbsp;
+    Built by <a href="https://github.com/vedikakashyap" target="_blank">Vedika Kashyap</a>
+    &nbsp;·&nbsp;
+    Powered by <a href="https://groq.com" target="_blank">Groq</a>
+    &amp; <a href="https://tavily.com" target="_blank">Tavily</a>
+    &nbsp;·&nbsp;
     <a href="https://github.com/vedikakashyap/Fact_Lence" target="_blank">GitHub</a>
 </div>
 """, unsafe_allow_html=True)
